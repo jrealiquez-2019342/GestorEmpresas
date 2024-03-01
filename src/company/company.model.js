@@ -2,11 +2,6 @@
 
 import { Schema, model } from 'mongoose';
 
-// Función para eliminar la información de la hora de una fecha
-const stripTime = (date) => {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-};
-
 export const companySchema = Schema({
     name: {
         type: String,
@@ -30,20 +25,21 @@ export const companySchema = Schema({
     },
     impactLevel: {
         type: String,
-        enum: ['BAJO', 'MEDIO', 'ALTO'],
+        uppercase: true,
+        enum: ['LOW', 'MEDIUM', 'HIGH'],
         required: [true, 'impactLevel is required.']
     },
     foundedAt: {
         type: Date,
-        required: [true, 'founded date is required.'],
-        set: stripTime
+        required: [true, 'founded date is required.']
     },
-    yearsTrajectory:{
+    yearsTrajectory: {
         type: Number,
         required: [true, 'years of trajectory is required.']
     },
     category: {
-        type: Schema.ObjectId,
+        type: Schema.Types.ObjectId,
+        ref: 'Category',
         required: [true, 'category Id is required.']
     }
 }, {

@@ -43,6 +43,6 @@ export const checkUpdate = (data, userId) => {
             data.role ||
             data.role == ''
         ) return false;
-        return false;
+        return true;
     }
 }

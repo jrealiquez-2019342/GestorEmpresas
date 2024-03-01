@@ -1,7 +1,7 @@
 import {Router} from 'express'
 
 import { test, register, login, update, deleteU} from './user.controller.js';
-import { validateJwt, isAdmin} from './../middlewares/validate-jwt';
+import { validateJwt, isAdmin} from './../middlewares/validate-jwt.js';
 
 const api = Router();
 

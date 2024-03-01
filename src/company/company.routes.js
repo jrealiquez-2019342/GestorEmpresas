@@ -1,5 +1,5 @@
-import {Router} from 'express';
-import { test, save, get, filterTrajectory, filterCategory, update } from './company.controller';
+import { Router } from 'express';
+import { test, save, get, filterTrajectory, filterCategory, filterAlphabetical,update, generateReport} from './company.controller.js';
 import { validateJwt, isAdmin } from './../middlewares/validate-jwt.js';
 
 const api = Router();
@@ -19,9 +19,15 @@ api.get('/get', [validateJwt, isAdmin], get);
 api.post('/filterTrajectory',[validateJwt, isAdmin], filterTrajectory)
 
 //filtrar compañias según su categoria.
-api.get('/filterCategory/:num', [validateJwt, isAdmin], filterCategory);
+api.get('/filterCategory/:id', [validateJwt, isAdmin], filterCategory);
+
+//filtrar segun orden ascendete o descendente.
+api.get('/filterAlphabet/:num', [validateJwt, isAdmin], filterAlphabetical);
 
 //modificar la compañia.
 api.put('/update/:id', [validateJwt, isAdmin],update);
+
+//generar reporte de excel
+api.get('/report', [validateJwt, isAdmin], generateReport);
 
 export default api;

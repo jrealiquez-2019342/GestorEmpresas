@@ -84,8 +84,8 @@ export const deleteC = async (req, res) => {
         if (categoryFinded.isDefault) return res.status(400).send({ message: `Default category cannot be deleted.` });
 
         //verificar si la categoria esta asociada a productos.
-        let products = await Product.find({ category: categoryFinded._id });
-        if (products.length === 0) {
+        let company = await Company.find({ category: categoryFinded._id });
+        if (company.length === 0) {
             //eliminar la categoria solicitada
             let deletedCategory = await Category.findOneAndDelete({ _id: id });
             //validar la eliminacion
@@ -99,10 +99,10 @@ export const deleteC = async (req, res) => {
         if (!defaultC) return res.status(404).send({ message: `> Category default not exists. \n> Category cannot be deleted.` })
 
         // Actualiza todos los productos asociados a la categoría proporcionada
-        let productsUpdated = await Product.updateMany({ category: id }, { category: defaultC._id });
+        let companyUpdated = await Company.updateMany({ category: id }, { category: defaultC._id });
 
         //validar si se actualizo
-        if (productsUpdated.modifiedCount === 0) return res.status(404).send({ message: `Products not modified. Category not deleted.` });
+        if (companyUpdated.modifiedCount === 0) return res.status(404).send({ message: `Products not modified. Category not deleted.` });
 
         //eliminar la categoria solicitada
         let deletedCategory = await Category.deleteOne({ _id: id });

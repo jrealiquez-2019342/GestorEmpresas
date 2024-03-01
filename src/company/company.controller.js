@@ -1,6 +1,8 @@
 'use strict'
 
 import Company from './company.model.js';
+import ExcelJS from 'exceljs';
+
 
 export const test = (req, res) => {
     console.log('company test is running...');
@@ -11,6 +13,7 @@ export const test = (req, res) => {
 export const save = async (req, res) => {
     try {
         let data = req.body;
+        console.log(data);
         //validar que la data no venga vacia
         if (Object.entries(data).length == 0) return res.status().send({ message: `Error saving company | Data is empty` })
 
@@ -40,8 +43,8 @@ export const save = async (req, res) => {
         await company.save();
         return res.send({ message: `Company saved successfully` });
     } catch (err) {
-        if (err.keyValue.name) return res.status(400).send({ message: `Error Adding | Company with name '${err.keyValue.email}' already exist.` });
-        if (err.keyValue.email) return res.status(400).send({ message: `Error Adding | Email '${err.keyValue.email}' is al ready token.` })
+        /*if (err.keyValue.name) return res.status(400).send({ message: `Error Adding | Company with name '${err.keyValue.email}' already exist.` });
+        if (err.keyValue.email) return res.status(400).send({ message: `Error Adding | Email '${err.keyValue.email}' is al ready token.` })*/
         console.error(err);
         return res.status(500).send({ message: `Error saving company` });
     }
@@ -50,7 +53,7 @@ export const save = async (req, res) => {
 //Funcion para ver todas las empresas
 export const get = async (req, res) => {
     try {
-        let companies = await Company.find().populate('Category', ['name']);
+        let companies = await Company.find().populate('category', ['name']);
         return res.send({ companies });
     } catch (err) {
         console.error(err);
@@ -66,15 +69,35 @@ export const filterTrajectory = async (req, res) => {
         //validar que si tenga valor years
         if (!years) return res.status(400).send({ message: `Error getting companies | years is empty | filter years.` })
 
-        // Obtener la fecha actual
-        let currentDate = new Date();
-        // Calcular la fecha límite
-        const limitDate = new Date(currentDate.getFullYear() - years, currentDate.getMonth(), currentDate.getDate());
-
-        let filter = await Company.find({ yearsOfTrajectory: years });
+        let filter = await Company.find({ yearsTrajectory: years }).populate('category', ['name']);
+        return res.send({filter})
     } catch (err) {
         console.error(err);
         return res.status(500).send({ message: `Error getting companies | filter trajectory` });
+    }
+}
+
+//Funcion para filtrar a las empresas por orden alfabetico
+export const filterAlphabetical = async(req, res)=>{
+    try {
+        //obtenemos numero del params para saber que orden quiere
+        //1-> A-Z -> A-Z (1)
+        //0-> Z-A (-1)
+        let { num } = req.params;
+        let order = 1;
+
+        if(!num || num == 1){
+            order = 1;
+        }else{
+            order = -1;
+        }
+
+        let filter = await Company.find().sort({name: order});
+        return res.send({filter});
+
+    } catch (err) {
+        console.error(err);
+        return res.status(500).send({message:`Error getting companies | filterName`})
     }
 }
 
@@ -83,48 +106,18 @@ export const filterTrajectory = async (req, res) => {
 export const filterCategory = async (req, res) => {
     try {
 
-        //obtenemos numero del params para saber que orden quiere
-        //0-> A-Z || si no ingresa -> A-Z
-        //1-> Z-A
+        let {id} = req.params;
 
-
-        let { num } = req.params;
-
-        //realizamos una consulta tipo Join para unir las categorias
-        let companiesAZ = await Company.aggregate([
-            {
-                //obtenemos las categorias 
-                $lookup: {
-                    from: "categories", //nombre de la colección de categorías
-                    localField: "category",
-                    foreignField: "_id",
-                    as: "categoryDetails"
-                }
-            },
-            {
-                //coincidimos los ids para que no nos aparezcan todas las categorias
-                $unwind: "$categoryDetails"
-            },
-            {
-                //ordenamos las categorias de la A-Z
-                $sort: { "categoryDetails.name": 1 }
-            }
-        ]);
-
-        if (!num || num == 0) {
-            return res.send({ companiesAZ });
-        } else {
-            let companiesZA = companiesAZ.slice().reverse();
-            return res.send({ companiesZA });
-        }
-
+        let filter = await Company.find({category: id}).populate('category', ['name']);
+        return res.send(filter);
     } catch (err) {
         console.error(err);
         return res.status(500).send({ message: `Error getting companies | filter category` })
     }
 }
 
-export const update = async () => {
+//funcion para modificar las empresas.
+export const update = async (req, res) => {
     try {
         let data = req.body;
         let { id } = req.params;
@@ -136,11 +129,65 @@ export const update = async () => {
         )
 
         if (!companyUpdate) return res.status(404).send({ message: `Company not found and not updated.` })
-        return res.send({ message: `Company updated successfully.` }, companyUpdate);
+        return res.send({ message: `Company updated successfully.`, companyUpdate });
     } catch (err) {
-        if (err.keyValue.name) return res.status(400).send({ message: `Error Adding | Company with name '${err.keyValue.email}' already exist.` });
-        if (err.keyValue.email) return res.status(400).send({ message: `Error Adding | Email '${err.keyValue.email}' is al ready token.` })
         console.error(err);
         return res.status(500).send({ message: `Error updating compnay | update` });
     }
 }
+
+
+//función para generar el reporte en Excel
+export const generateReport = async (req, res) => {
+    try {
+        //obtenemos las empresas de nuestra base de datos
+        let companies = await Company.find().sort({name: 1}).populate('category', 'name');
+
+        //creamos el libro de excel
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Companies Interfer - 2024');
+
+        //definimos las columnas
+        worksheet.columns = [
+            { header: 'Name', key: 'name', width: 30 },
+            { header: 'Address', key: 'address', width: 50 },
+            { header: 'Phone', key: 'phone', width: 15 },
+            { header: 'Email', key: 'email', width: 30 },
+            { header: 'Impact Level', key: 'impactLevel', width: 15 },
+            { header: 'Founded At', key: 'foundedAt', width: 15 },
+            { header: 'Years Trajectory', key: 'yearsTrajectory', width: 15 },
+            { header: 'Category', key: 'category', width: 20 },
+        ];
+
+        //agregamos las empresas
+        companies.forEach(company => {
+            worksheet.addRow({
+                name: company.name,
+                address: company.address,
+                phone: parseInt(company.phone),
+                email: company.email,
+                impactLevel: company.impactLevel,
+                foundedAt: company.foundedAt.toISOString().split('T')[0],
+                yearsTrajectory: company.yearsTrajectory,
+                category: company.category.name,
+            });
+        });
+
+        // Centrar el contenido de la columna de categoría
+        worksheet.getColumn('category').alignment = { horizontal: 'center' };
+        worksheet.getColumn('yearsTrajectory').alignment = { horizontal: 'center' };
+        worksheet.getColumn('foundedAt').alignment = { horizontal: 'center' };
+        worksheet.getColumn('impactLevel').alignment = { horizontal: 'center' };
+
+        //escribir el archivo de excel en memoria
+        const buffer = await workbook.xlsx.writeBuffer();
+
+        //enviamos el archivo de excel como respusta al usuario
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=Interfer Companies - 2024.xlsx');
+        res.send(buffer);
+    } catch (err) {
+        console.error(err);
+        return res.status(500).send({ message: `Error generating Excel report` });
+    }
+};

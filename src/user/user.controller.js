@@ -2,6 +2,7 @@
 
 import User from './user.model.js';
 import { checkPassword, encrypt, checkUpdate } from './../../utils/validator.js';
+import { generateJwt } from './../../utils/jwt.js';
 
 
 //Funcion para realizar test
@@ -27,7 +28,7 @@ export const register = async (req, res) => {
         data.password = await encrypt(data.password);
 
         //si el no ingreso role, le asignamos uno por defecto
-        if (!data.role) data.role = 'ADMIN';
+        data.role = 'ADMIN';
 
         //creamos nuestro usuario
         let user = new User(data);
@@ -60,16 +61,16 @@ export const login = async (req, res) => {
             }
 
             //generar el token y enviarlo como respuesta.
-            let token = await generateJwt(loggedUser);
+            let authorization = await generateJwt(loggedUser);
             return res.send({
                 message: `WELCOME ${user.username}`,
                 loggedUser,
-                token
+                authorization
             })
         }
     } catch (err) {
         console.error(err);
-        return res.status(500).send({ message: `ERROR IN LOGIN` });
+        return res.status(500).send({ message: `Error login | login` });
     }
 }
 
@@ -77,9 +78,7 @@ export const login = async (req, res) => {
 export const update = async (req, res) => {
     try {
         //extraer valores de req.user
-        //let { role, uid } = jwt.verify(token, process.env.SECRET_KEY);
-        let { role, uid } = req.user;
-
+        let { _id } = req.user;
         //extraer datos a actualizar
         let data = req.body;
 
@@ -88,22 +87,18 @@ export const update = async (req, res) => {
 
         //actualizar
         let updatedUser = await User.findOneAndUpdate(
-            { _id: uid },
+            { _id },
             data,
             { new: true }
         )
 
         //validar que se haya actualizado
-        if (!updatedUser) return res.status(401).send({ message: `User not found and not updated.`});
+        if (!updatedUser) return res.status(401).send({ message: `User not found and not updated.` });
 
         //respuesta al usuario
         return res.send({ message: `Update user`, updatedUser });
     } catch (err) {
-        if (err.keyValue.username) return res.status(400).send({ message: `Username @${err.keyValue.username} is al ready token.` })
-        if (err.keyValue.email) return res.status(400).send({ message: `Email '${err.keyValue.email}' is al ready token.` })
-
         console.error(err);
-        
         return res.status(500).send({ message: `Error updating profile.` })
     }
 }
@@ -115,13 +110,17 @@ export const update = async (req, res) => {
 
 export const deleteU = async (req, res) => {
     try {
-        //validar si el body tiene datos (eliminar a alguien mas)
 
-        let data = req.body;
-        if (Object.entries(data) !== 0) {
-            //eliminar a otro usuario
-        } else {
-            //
+        let {password} = req.body;
+        let user = req.user;
+
+        if(!password) return res.status(401).send({message:`password is required.`})
+
+        if (await checkPassword(password, user.password)){
+            await User.findOneAndDelete({_id: user._id})
+            return res.send({message:`@${user.username} deleted successfully...`})
+        }else{
+            return res.status(401).send({message:`Incorrect password`})
         }
 
     } catch (err) {
@@ -150,7 +149,7 @@ export const createAdmin = async () => {
             await admin.save();
             return console.log({ message: `Registered successfully. \nCan be logged with username ${admin.username} and pass 12345` })
         }
-        console.log({ message: `Can be logged with username ${user.username}` });
+        console.log({ message: `Can be logged with username ${user.username} and password 12345` });
 
     } catch (err) {
         console.error(err);
